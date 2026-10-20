@@ -201,8 +201,8 @@ void func_80022B40(void* arg0, Unk6* arg1, s32 arg2);  /* extern */
 void func_8002371C(MtxF* arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5, f32 arg6);
 void func_80023DF4(MtxF* arg0, f32 arg1, f32 arg2, f32 arg3);
 extern s32 D_8007B2F8;
-//void func_8001DC78(MtxF*, Vec3f, s32, s32, s32, s32, void*, void*, s32);
-RECOMP_PATCH void func_8001DC78(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s32 arg6, s32 arg7, Unk9* arg8, Unk8* arg9, Mtx* arg10) {
+//void model_draw_bone(MtxF*, Vec3f, s32, s32, s32, s32, void*, void*, s32);
+RECOMP_PATCH void model_draw_bone(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s32 arg6, s32 arg7, Unk9* arg8, Unk8* arg9, Mtx* arg10) {
     Gfx* temp_v0;
     Gfx* temp_v0_3;
     Gfx* temp_v0_4;
@@ -279,7 +279,7 @@ RECOMP_PATCH void func_8001DC78(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s32 
     for (i = 0; i < arg8->unk_00; i++, var_s0++) {
         temp = arg5 + 1;
         if (temp == var_s0->unk_14) {
-            func_8001DC78((MtxF* ) &spA0, arg1, arg4, i, arg6, arg7, arg8, arg9, arg10);
+            model_draw_bone((MtxF* ) &spA0, arg1, arg4, i, arg6, arg7, arg8, arg9, arg10);
         }        
     }
 }

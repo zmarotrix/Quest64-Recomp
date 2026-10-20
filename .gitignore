@@ -10,6 +10,7 @@
 
 # Output C files
 RecompiledFuncs/
+RecompiledFuncs.old/
 RecompiledPatches/
 
 # Linux build output

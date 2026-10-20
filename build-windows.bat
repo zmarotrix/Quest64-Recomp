@@ -56,16 +56,41 @@ if not exist N64Recomp.exe (
     for %%T in (N64Recomp RSPRecomp RecompModTool) do copy /y lib\N64ModernRuntime\N64Recomp\build\%%T.exe . >nul
 )
 
-rem Generate C code from the ROM.
-if not exist RecompiledFuncs\ (
-    if not exist quest64.us.z64 (
-        echo ERROR: Put your Quest 64 ^(USA 1.0^) ROM in this folder as quest64.us.z64
-        exit /b 1
-    )
-    echo === Recompiling the ROM ===
-    N64Recomp.exe us.rev0.toml || exit /b 1
-    RSPRecomp.exe aspMain.toml || exit /b 1
+rem Generate C code from the ROM. Regenerate when the symbol names (Quest64Syms) or the recompiler
+rem config change, so renamed functions show up in the generated code. Copies of the inputs used for
+rem the last run are kept in RecompiledFuncs\stamp\ to detect changes.
+set RECOMPILE=0
+if not exist RecompiledFuncs\ set RECOMPILE=1
+for %%F in (Quest64Syms\dump.toml Quest64Syms\data_dump.toml us.rev0.toml) do (
+    fc /b "%%F" "RecompiledFuncs\stamp\%%~nxF" >nul 2>nul || set RECOMPILE=1
 )
+if not "%RECOMPILE%"=="1" goto recompiled
+if not exist quest64.us.z64 (
+    echo ERROR: Put your Quest 64 ^(USA 1.0^) ROM in this folder as quest64.us.z64
+    exit /b 1
+)
+echo === Recompiling the ROM ===
+rem Keep the previous output until the new one is complete, so a failed run never leaves nothing behind.
+if exist RecompiledFuncs.old\ rmdir /s /q RecompiledFuncs.old
+if exist RecompiledFuncs\ move RecompiledFuncs RecompiledFuncs.old >nul
+rem .\ because cmd may be set not to run programs from the current folder by name alone.
+.\N64Recomp.exe us.rev0.toml
+if errorlevel 1 goto recompile_failed
+if not exist RecompiledFuncs\funcs.h goto recompile_failed
+.\RSPRecomp.exe aspMain.toml
+if errorlevel 1 goto recompile_failed
+mkdir RecompiledFuncs\stamp
+for %%F in (Quest64Syms\dump.toml Quest64Syms\data_dump.toml us.rev0.toml) do copy /y "%%F" RecompiledFuncs\stamp\ >nul
+if exist RecompiledFuncs.old\ rmdir /s /q RecompiledFuncs.old
+goto recompiled
+
+:recompile_failed
+echo ERROR: Recompiling the ROM failed; the previous generated code was kept.
+if exist RecompiledFuncs\ rmdir /s /q RecompiledFuncs
+if exist RecompiledFuncs.old\ move RecompiledFuncs.old RecompiledFuncs >nul
+exit /b 1
+
+:recompiled
 
 echo === Building Quest64Recompiled (%BUILD_TYPE%) ===
 cmake -S . -B build-%BUILD_TYPE% -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
