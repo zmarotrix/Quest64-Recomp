@@ -8,7 +8,7 @@ These steps cover: cloning the repository, installing the tools, running the rec
 This project makes use of submodules so you will need to clone the repository with the `--recurse-submodules` flag.
 
 ```bash
-git clone --recurse-submodules https://github.com/zmarotrix/Quest64-Recomp.git
+git clone --recurse-submodules https://github.com/Rainchus/Quest64-Recomp.git
 # if you forgot to clone with --recurse-submodules
 # cd /path/to/cloned/repo && git submodule update --init --recursive
 ```
