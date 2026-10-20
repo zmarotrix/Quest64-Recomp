@@ -56,6 +56,8 @@ namespace recompui {
     ContextId try_close_current_context();
 
     ContextId get_launcher_context_id();
+    // Set by --quick-start: start the game on the first UI frame instead of showing the launcher.
+    inline bool quick_start_requested = false;
     ContextId get_config_context_id();
     ContextId get_config_sub_menu_context_id();
 

@@ -27,6 +27,8 @@
 #include "ui_mod_installer.h"
 #include "ui_renderer.h"
 
+extern std::vector<recomp::GameEntry> supported_games;
+
 bool can_focus(Rml::Element* element) {
     return element->GetOwnerDocument() != nullptr && element->GetProperty(Rml::PropertyId::TabIndex)->Get<Rml::Style::TabIndex>() != Rml::Style::TabIndex::None;
 }
@@ -558,8 +560,14 @@ void draw_hook(plume::RenderCommandList* command_list, plume::RenderFramebuffer*
     }
 
     // Return to the launcher if no menu is open and the game isn't started.
+    // With --quick-start, start the game instead the first time (the ROM has been checked by now).
     if (!recompui::is_any_context_shown() && !ultramodern::is_game_started()) {
-        recompui::show_context(recompui::get_launcher_context_id(), "");
+        if (recompui::quick_start_requested && recomp::is_rom_valid(supported_games[0].game_id)) {
+            recompui::quick_start_requested = false;
+            recomp::start_game(supported_games[0].game_id);
+        } else {
+            recompui::show_context(recompui::get_launcher_context_id(), "");
+        }
     }
 
     std::lock_guard lock{ ui_state_mutex };

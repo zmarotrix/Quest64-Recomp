@@ -676,6 +676,13 @@ int main(int argc, char** argv) {
 
     // The render context is the first callback that receives RDRAM, so start the dev panel there.
     dev_panel_requested = q64::devpanel::requested(argc, argv);
+
+    // --quick-start skips the launcher (see draw_hook in ui_state.cpp).
+    for (int i = 1; i < argc; i++) {
+        if (std::string_view{ argv[i] } == "--quick-start") {
+            recompui::quick_start_requested = true;
+        }
+    }
     ultramodern::renderer::callbacks_t renderer_callbacks{
         .create_render_context = create_render_context,
     };
