@@ -1,0 +1,62 @@
+name: build-windows
+
+# Builds everything that doesn't come from the ROM. The ROM can't be stored in the
+# repository, so RecompiledFuncs (the recompiled game code) and the final link are
+# skipped. This still compiles the patches, the recompiler tools, all libraries, and
+# every game source file except register_overlays.cpp, which includes recompiler output.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch submodules
+        # sf64decomp is only used for headers, so its tool submodules are skipped.
+        run: |
+          git submodule update --init --depth 1 --jobs 8
+          git -C lib/N64ModernRuntime submodule update --init --recursive --depth 1 --jobs 8
+          git -C lib/rt64 submodule update --init --recursive --depth 1 --jobs 8
+
+      - name: Install MSYS2 clang (for MIPS patches)
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          update: false
+          install: mingw-w64-clang-x86_64-clang
+
+      - name: Install make
+        run: choco install make --no-progress
+
+      - name: Set up MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build N64Recomp tools
+        run: |
+          cmake -S lib/N64ModernRuntime/N64Recomp -B lib/N64ModernRuntime/N64Recomp/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
+          cmake --build lib/N64ModernRuntime/N64Recomp/build --target N64RecompCLI RSPRecomp RecompModTool
+          Copy-Item lib/N64ModernRuntime/N64Recomp/build/N64Recomp.exe, lib/N64ModernRuntime/N64Recomp/build/RSPRecomp.exe .
+
+      - name: Configure
+        run: |
+          # RecompiledFuncs is generated from the ROM; a placeholder lets CMake configure.
+          New-Item -ItemType Directory -Force RecompiledFuncs | Out-Null
+          Set-Content RecompiledFuncs/placeholder.c "// CI placeholder: real contents are generated from the ROM"
+          $cc = (cygpath -m -s "${{ steps.msys2.outputs.msys2-location }}/clang64/bin/clang.exe")
+          $ld = (cygpath -m -s "C:/Program Files/LLVM/bin/ld.lld.exe")
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl "-DPATCHES_C_COMPILER=$cc" "-DPATCHES_LD=$ld"
+
+      - name: Build patches and libraries
+        run: |
+          # Every library (including PatchesLib) except the ROM-derived one, plus the game's
+          # own object files. Listing all objects individually overflows the command line.
+          $names = ninja -C build -t targets all | ForEach-Object { ($_ -split ':')[0] }
+          $libs = $names | Where-Object { $_ -like '*.lib' -and $_ -notlike '*RecompiledFuncs*' }
+          $objs = $names | Where-Object { $_ -like 'CMakeFiles/Quest64Recompiled.dir/*.obj' -and $_ -notlike '*register_overlays.cpp.obj' }
+          ninja -C build @libs @objs
