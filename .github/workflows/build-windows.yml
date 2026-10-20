@@ -3,7 +3,8 @@ name: build-windows
 # Builds everything that doesn't come from the ROM. The ROM can't be stored in the
 # repository, so RecompiledFuncs (the recompiled game code) and the final link are
 # skipped. This still compiles the patches, the recompiler tools, all libraries, and
-# every game source file except register_overlays.cpp, which includes recompiler output.
+# every game source file except the ROM-derived rsp/aspMain.cpp and register_overlays.cpp,
+# which includes recompiler output.
 
 on:
   push:
@@ -14,7 +15,7 @@ jobs:
   build:
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fetch submodules
         # sf64decomp is only used for headers, so its tool submodules are skipped.
@@ -45,9 +46,10 @@ jobs:
 
       - name: Configure
         run: |
-          # RecompiledFuncs is generated from the ROM; a placeholder lets CMake configure.
+          # RecompiledFuncs and rsp/aspMain.cpp are generated from the ROM; placeholders let CMake configure.
           New-Item -ItemType Directory -Force RecompiledFuncs | Out-Null
           Set-Content RecompiledFuncs/placeholder.c "// CI placeholder: real contents are generated from the ROM"
+          Set-Content rsp/aspMain.cpp "// CI placeholder: real contents are generated from the ROM"
           $cc = (cygpath -m -s "${{ steps.msys2.outputs.msys2-location }}/clang64/bin/clang.exe")
           $ld = (cygpath -m -s "C:/Program Files/LLVM/bin/ld.lld.exe")
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl "-DPATCHES_C_COMPILER=$cc" "-DPATCHES_LD=$ld"
@@ -58,5 +60,5 @@ jobs:
           # own object files. Listing all objects individually overflows the command line.
           $names = ninja -C build -t targets all | ForEach-Object { ($_ -split ':')[0] }
           $libs = $names | Where-Object { $_ -like '*.lib' -and $_ -notlike '*RecompiledFuncs*' }
-          $objs = $names | Where-Object { $_ -like 'CMakeFiles/Quest64Recompiled.dir/*.obj' -and $_ -notlike '*register_overlays.cpp.obj' }
+          $objs = $names | Where-Object { $_ -like 'CMakeFiles/Quest64Recompiled.dir/*.obj' -and $_ -notlike '*register_overlays.cpp.obj' -and $_ -notlike '*rsp/aspMain.cpp.obj' }
           ninja -C build @libs @objs
