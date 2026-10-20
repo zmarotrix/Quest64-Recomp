@@ -197,6 +197,8 @@ set (SOURCES
     ${CMAKE_SOURCE_DIR}/src/ui/elements/ui_text_input.cpp
     ${CMAKE_SOURCE_DIR}/src/ui/elements/ui_toggle.cpp
 
+    ${CMAKE_SOURCE_DIR}/src/devpanel/devpanel.cpp
+
     ${CMAKE_SOURCE_DIR}/rsp/aspMain.cpp
     # ${CMAKE_SOURCE_DIR}/rsp/njpgdspMain.cpp
 
@@ -212,6 +214,7 @@ target_include_directories(Quest64Recompiled PRIVATE
     ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/N64Recomp/include
     ${CMAKE_SOURCE_DIR}/lib/concurrentqueue
     ${CMAKE_SOURCE_DIR}/lib/GamepadMotionHelpers
+    ${CMAKE_SOURCE_DIR}/lib/cpp-httplib
     ${CMAKE_SOURCE_DIR}/lib/RmlUi/Include
     ${CMAKE_SOURCE_DIR}/lib/RmlUi/Backends
     ${CMAKE_SOURCE_DIR}/lib/rt64/src/contrib

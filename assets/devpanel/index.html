@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quest 64 Dev Panel</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6a66; --line: #dddbd5;
+    --accent: #b5462b; --accent-text: #ffffff; --ok: #2e7d4f; --warn: #a15c00; --input: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17171a; --panel: #212125; --text: #ecebe8; --muted: #9b9a96; --line: #34343a;
+      --accent: #e0714f; --accent-text: #17171a; --ok: #6cc28f; --warn: #e3a54a; --input: #19191c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  #status { color: var(--muted); font-size: 13px; }
+  nav { display: flex; gap: 4px; }
+  nav button { border: 1px solid var(--line); background: transparent; color: var(--text); padding: 5px 12px; border-radius: 6px; cursor: pointer; font: inherit; }
+  nav button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  main { padding: 16px; }
+  section { display: none; }
+  section.active { display: block; }
+  .muted { color: var(--muted); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+  .card h2 { font-size: 14px; margin: 0 0 10px; }
+  input, select { background: var(--input); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; font: inherit; }
+  input[type=number] { width: 90px; }
+  input.saved { outline: 2px solid var(--ok); }
+  input.failed { outline: 2px solid var(--warn); }
+  button.action { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 4px; padding: 5px 10px; cursor: pointer; font: inherit; }
+  button.plain { background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 4px 9px; cursor: pointer; font: inherit; }
+  #spells-layout { display: grid; grid-template-columns: 220px 1fr; gap: 12px; }
+  @media (max-width: 700px) { #spells-layout { grid-template-columns: 1fr; } }
+  #spell-list { max-height: calc(100vh - 120px); overflow: auto; padding: 6px; }
+  #spell-list .school { font-weight: 600; margin: 8px 6px 2px; font-size: 12px; text-transform: uppercase; color: var(--muted); }
+  #spell-list button { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); padding: 3px 6px; border-radius: 4px; cursor: pointer; font: inherit; }
+  #spell-list button.active { background: var(--accent); color: var(--accent-text); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 14px; }
+  .field { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .field label { font-size: 13px; }
+  .field label small { display: block; color: var(--muted); font-size: 11px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  th { color: var(--muted); font-weight: 500; }
+  td input[type=number] { width: 80px; }
+  pre { font: 12px/1.5 ui-monospace, Consolas, monospace; overflow: auto; margin: 0; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  #toast { position: fixed; bottom: 16px; right: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Quest 64 Dev Panel</h1>
+  <nav>
+    <button data-tab="spells" class="active">Spells</button>
+    <button data-tab="brian">Brian</button>
+    <button data-tab="saves">Saves</button>
+    <button data-tab="memory">Memory</button>
+  </nav>
+  <span id="status">Connecting…</span>
+</header>
+<main>
+  <section id="tab-spells" class="active">
+    <div id="spells-layout">
+      <div class="card" id="spell-list"><span class="muted">Start the game to load spells.</span></div>
+      <div id="spell-editor"><div class="card muted">Pick a spell. Changes apply to the running game immediately and last until you quit.</div></div>
+    </div>
+  </section>
+
+  <section id="tab-brian">
+    <div class="card">
+      <h2>Quick actions</h2>
+      <div class="row">
+        <button class="action" data-brian="heal">Full HP &amp; MP</button>
+        <button class="plain" data-brian="elements" data-level="10">All elements → 10</button>
+        <button class="plain" data-brian="elements" data-level="25">All elements → 25</button>
+        <button class="plain" data-brian="elements" data-level="50">All elements → 50</button>
+      </div>
+      <p class="muted">Values refresh every second. Edit a box and press Enter to write it.</p>
+    </div>
+    <div class="card"><h2>Stats</h2><div class="grid" id="brian-fields"></div></div>
+  </section>
+
+  <section id="tab-saves">
+    <div class="card">
+      <h2>Save slots</h2>
+      <p class="muted">Backup copies the game's save files (Quest 64 saves to a virtual Controller Pak) into a slot.
+        Restore puts a slot's files back (your current saves are kept as <code>_before_restore</code>);
+        then load your file from the game's menu.</p>
+      <div class="row">
+        <input id="slot-name" placeholder="slot name, e.g. before_boss">
+        <button class="action" id="backup">Back up current save</button>
+      </div>
+      <table><thead><tr><th>Slot</th><th>Saved</th><th></th></tr></thead><tbody id="slots"></tbody></table>
+      <p class="muted" id="save-path"></p>
+    </div>
+  </section>
+
+  <section id="tab-memory">
+    <div class="card">
+      <h2>Memory viewer</h2>
+      <div class="row">
+        <input id="mem-addr" value="0x800C06A0" size="12">
+        <input id="mem-len" type="number" value="256" min="1" max="65536">
+        <button class="action" id="mem-read">Read</button>
+      </div>
+      <pre id="mem-out"></pre>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+const SCHOOLS = ["Fire", "Earth", "Water", "Wind", "Enemy"];
+let schema = null;
+let spells = [];
+let current = null; // { school, index }
+
+async function api(path, body) {
+  const opts = { headers: { "X-Q64-Dev": "1" } };
+  if (body !== undefined) {
+    opts.method = "POST";
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+function toast(text) {
+  const el = document.getElementById("toast");
+  el.textContent = text;
+  el.style.display = "block";
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => el.style.display = "none", 2500);
+}
+
+function hex(n, width = 8) { return "0x" + n.toString(16).toUpperCase().padStart(width, "0"); }
+
+function flash(input, ok) {
+  input.classList.remove("saved", "failed");
+  input.classList.add(ok ? "saved" : "failed");
+  setTimeout(() => input.classList.remove("saved", "failed"), 800);
+}
+
+// Number input that writes on Enter or when focus leaves, if the value changed.
+function numberInput(value, type, onCommit) {
+  const input = document.createElement("input");
+  input.type = "number";
+  input.step = type === "f32" ? "any" : "1";
+  input.value = value;
+  input.dataset.original = value;
+  const commit = async () => {
+    if (input.value === input.dataset.original || input.value === "") return;
+    const v = type === "f32" ? parseFloat(input.value) : parseInt(input.value, 10);
+    try {
+      await onCommit(v);
+      input.dataset.original = input.value;
+      flash(input, true);
+    } catch (e) {
+      flash(input, false);
+      toast(e.message);
+    }
+  };
+  input.addEventListener("keydown", e => { if (e.key === "Enter") commit(); });
+  input.addEventListener("blur", commit);
+  return input;
+}
+
+function fieldRow(f, value, onCommit) {
+  const row = document.createElement("div");
+  row.className = "field";
+  const label = document.createElement("label");
+  label.textContent = f.label;
+  if (f.help) {
+    const small = document.createElement("small");
+    small.textContent = f.help;
+    label.appendChild(small);
+  }
+  row.append(label, numberInput(value, f.type, onCommit));
+  return row;
+}
+
+// ---- Status ----
+async function refreshStatus() {
+  try {
+    const s = await api("/api/status");
+    document.getElementById("status").textContent =
+      s.spellTablesLoaded ? "Connected · game data loaded" : (s.gameStarted ? "Connected · waiting for game data" : "Connected · start the game");
+    if (s.spellTablesLoaded && spells.length === 0) loadSpells();
+  } catch {
+    document.getElementById("status").textContent = "Not connected. Is the game running with --dev-panel?";
+  }
+}
+
+// ---- Spells ----
+async function loadSpells() {
+  try {
+    spells = await api("/api/spells");
+  } catch (e) {
+    return;
+  }
+  const list = document.getElementById("spell-list");
+  list.innerHTML = "";
+  SCHOOLS.forEach((name, school) => {
+    const head = document.createElement("div");
+    head.className = "school";
+    head.textContent = name;
+    list.appendChild(head);
+    spells.filter(s => s.school === school).forEach(s => {
+      const b = document.createElement("button");
+      b.textContent = s.name || `(${hex(s.id, 3)})`;
+      b.dataset.key = `${s.school}:${s.index}`;
+      b.onclick = () => selectSpell(s.school, s.index);
+      list.appendChild(b);
+    });
+  });
+  if (current) selectSpell(current.school, current.index);
+}
+
+function findSpell(school, index) { return spells.find(s => s.school === school && s.index === index); }
+
+async function updateSpell(body) {
+  const updated = await api("/api/spell", { school: current.school, index: current.index, ...body });
+  spells[spells.indexOf(findSpell(current.school, current.index))] = updated;
+  return updated;
+}
+
+function selectSpell(school, index) {
+  current = { school, index };
+  document.querySelectorAll("#spell-list button").forEach(b => b.classList.toggle("active", b.dataset.key === `${school}:${index}`));
+  const s = findSpell(school, index);
+  const editor = document.getElementById("spell-editor");
+  editor.innerHTML = "";
+
+  const head = document.createElement("div");
+  head.className = "card";
+  head.innerHTML = `<h2></h2><div class="row"><label>Name</label></div>
+    <span class="muted">Spell ID ${hex(s.id, 3)} · data at ${hex(s.ram)}${s.anim ? " · visuals at " + hex(s.anim.ram) : ""}</span>`;
+  head.querySelector("h2").textContent = `${SCHOOLS[school]} ${index + 1}: ${s.name}`;
+  const nameInput = document.createElement("input");
+  nameInput.value = s.name;
+  nameInput.maxLength = s.nameMaxLength;
+  nameInput.addEventListener("keydown", async e => {
+    if (e.key !== "Enter") return;
+    try {
+      await updateSpell({ name: nameInput.value.toUpperCase() });
+      nameInput.value = nameInput.value.toUpperCase();
+      flash(nameInput, true);
+      document.querySelector(`#spell-list button[data-key="${school}:${index}"]`).textContent = nameInput.value;
+    } catch (err) { flash(nameInput, false); toast(err.message); }
+  });
+  const hint = document.createElement("span");
+  hint.className = "muted";
+  hint.textContent = `max ${s.nameMaxLength} characters, Enter to apply`;
+  head.querySelector(".row").append(nameInput, hint);
+  editor.appendChild(head);
+
+  const stats = document.createElement("div");
+  stats.className = "card";
+  stats.innerHTML = "<h2>Stats</h2>";
+  const grid = document.createElement("div");
+  grid.className = "grid";
+  schema.spellFields.forEach(f => {
+    grid.appendChild(fieldRow(f, s.fields[f.key], v => updateSpell({ fields: { [f.key]: v } })));
+  });
+  stats.appendChild(grid);
+  editor.appendChild(stats);
+
+  if (s.anim) {
+    const vis = document.createElement("div");
+    vis.className = "card";
+    vis.innerHTML = `<h2>Visuals</h2><p class="muted">Stage 2 is usually the projectile, stage 4 the impact. Model -1 = unused.</p>`;
+    const table = document.createElement("table");
+    table.innerHTML = "<thead><tr><th>Stage</th>" + schema.animStageFields.map(f => `<th>${f.label}</th>`).join("") + "</tr></thead>";
+    const tbody = document.createElement("tbody");
+    s.anim.stages.forEach((stage, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${i + 1}</td>`;
+      schema.animStageFields.forEach(f => {
+        const td = document.createElement("td");
+        td.appendChild(numberInput(stage[f.key], f.type, v => {
+          const stages = [{}, {}, {}, {}];
+          stages[i][f.key] = v;
+          return updateSpell({ stages });
+        }));
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    vis.appendChild(table);
+
+    const sounds = document.createElement("table");
+    sounds.innerHTML = "<thead><tr><th>Sound slot</th><th>Sound ID (255 = none)</th><th>Delay</th></tr></thead>";
+    const sbody = document.createElement("tbody");
+    s.anim.sounds.forEach((snd, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${i + 1}</td>`;
+      ["sound", "delay"].forEach(key => {
+        const td = document.createElement("td");
+        td.appendChild(numberInput(snd[key], "u8", v => {
+          const list = [{}, {}, {}, {}];
+          list[i][key] = v;
+          return updateSpell({ sounds: list });
+        }));
+        tr.appendChild(td);
+      });
+      sbody.appendChild(tr);
+    });
+    sounds.appendChild(sbody);
+    vis.appendChild(sounds);
+    editor.appendChild(vis);
+  }
+}
+
+// ---- Brian ----
+async function refreshBrian(force) {
+  if (!document.getElementById("tab-brian").classList.contains("active") && !force) return;
+  let values;
+  try { values = await api("/api/brian"); } catch { return; }
+  const box = document.getElementById("brian-fields");
+  if (!box.children.length) {
+    schema.brianFields.forEach(f => {
+      const row = fieldRow(f, values[f.key], v => api("/api/brian", { [f.key]: v }));
+      row.dataset.key = f.key;
+      box.appendChild(row);
+    });
+    return;
+  }
+  box.querySelectorAll(".field").forEach(row => {
+    const input = row.querySelector("input");
+    if (document.activeElement !== input) {
+      input.value = values[row.dataset.key];
+      input.dataset.original = input.value;
+    }
+  });
+}
+
+document.querySelectorAll("[data-brian]").forEach(b => b.onclick = async () => {
+  try {
+    if (b.dataset.brian === "heal") {
+      const v = await api("/api/brian");
+      await api("/api/brian", { hp: v.maxHp, mp: v.maxMp });
+    } else {
+      const lvl = parseInt(b.dataset.level, 10);
+      await api("/api/brian", { fire: lvl, earth: lvl, water: lvl, wind: lvl });
+    }
+    refreshBrian(true);
+    toast("Done");
+  } catch (e) { toast(e.message); }
+});
+
+// ---- Saves ----
+async function refreshSaves() {
+  let data;
+  try { data = await api("/api/saves"); } catch (e) { toast(e.message); return; }
+  document.getElementById("save-path").textContent = data.files.length
+    ? "Save files: " + data.files.join(", ")
+    : "No save files yet. Save in-game first.";
+  const tbody = document.getElementById("slots");
+  tbody.innerHTML = "";
+  data.slots.sort((a, b) => b.modified - a.modified).forEach(slot => {
+    const tr = document.createElement("tr");
+    const when = new Date(slot.modified * 1000).toLocaleString();
+    tr.innerHTML = `<td></td><td>${when}</td><td></td>`;
+    tr.children[0].textContent = slot.name;
+    const btn = document.createElement("button");
+    btn.className = "plain";
+    btn.textContent = "Restore";
+    btn.onclick = async () => {
+      if (!confirm(`Restore "${slot.name}" over the current save file?`)) return;
+      try { await api("/api/saves/restore", { name: slot.name }); toast("Restored. Load your file from the game's menu."); refreshSaves(); }
+      catch (e) { toast(e.message); }
+    };
+    tr.children[2].appendChild(btn);
+    tbody.appendChild(tr);
+  });
+  if (!data.slots.length) tbody.innerHTML = `<tr><td colspan="3" class="muted">No slots yet.</td></tr>`;
+}
+
+document.getElementById("backup").onclick = async () => {
+  const name = document.getElementById("slot-name").value.trim();
+  try { await api("/api/saves/backup", { name }); toast("Backed up"); refreshSaves(); }
+  catch (e) { toast(e.message); }
+};
+
+// ---- Memory ----
+document.getElementById("mem-read").onclick = async () => {
+  const addr = parseInt(document.getElementById("mem-addr").value, 16);
+  const len = parseInt(document.getElementById("mem-len").value, 10);
+  try {
+    const data = await api(`/api/mem?addr=${addr}&len=${len}`);
+    const lines = [];
+    for (let i = 0; i < data.hex.length; i += 32) {
+      const bytes = data.hex.slice(i, i + 32).match(/../g);
+      const ascii = bytes.map(b => { const c = parseInt(b, 16); return c >= 32 && c < 127 ? String.fromCharCode(c) : "."; }).join("");
+      lines.push(`${hex(addr + i / 2)}  ${bytes.join(" ").padEnd(47)}  ${ascii}`);
+    }
+    document.getElementById("mem-out").textContent = lines.join("\n");
+  } catch (e) { toast(e.message); }
+};
+
+// ---- Tabs and startup ----
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("active", s.id === "tab-" + b.dataset.tab));
+  if (b.dataset.tab === "saves") refreshSaves();
+  if (b.dataset.tab === "brian") refreshBrian(true);
+});
+
+(async () => {
+  for (;;) {
+    try { schema = await api("/api/schema"); break; }
+    catch { document.getElementById("status").textContent = "Not connected. Is the game running with --dev-panel?"; }
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  refreshStatus();
+  setInterval(refreshStatus, 3000);
+  setInterval(() => refreshBrian(false), 1000);
+})();
+</script>
+</body>
+</html>

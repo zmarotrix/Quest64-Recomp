@@ -39,6 +39,7 @@
 #include "librecomp/game.hpp"
 #include "librecomp/mods.hpp"
 #include "librecomp/helpers.hpp"
+#include "q64_devpanel.h"
 
 #include "../../patches/graphics.h"
 #include "../../patches/input.h"
@@ -176,6 +177,15 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
 
 void update_gfx(void*) {
     recomp::handle_events();
+}
+
+static bool dev_panel_requested = false;
+
+std::unique_ptr<ultramodern::renderer::RendererContext> create_render_context(uint8_t* rdram, ultramodern::renderer::WindowHandle window_handle, bool developer_mode) {
+    if (dev_panel_requested) {
+        q64::devpanel::start(rdram);
+    }
+    return zelda64::renderer::create_render_context(rdram, window_handle, developer_mode);
 }
 
 static SDL_AudioCVT audio_convert;
@@ -567,8 +577,6 @@ void reorder_texture_pack(recomp::mods::ModContext&) {
 #define REGISTER_FUNC(name) recomp::overlays::register_base_export(#name, name)
 
 int main(int argc, char** argv) {
-    (void)argc;
-    (void)argv;
     recomp::Version project_version{};
     if (!recomp::Version::from_string(version_string, project_version)) {
         ultramodern::error_handling::message_box(("Invalid version string: " + version_string).c_str());
@@ -666,8 +674,10 @@ int main(int argc, char** argv) {
         .get_rsp_microcode = get_rsp_microcode,
     };
 
+    // The render context is the first callback that receives RDRAM, so start the dev panel there.
+    dev_panel_requested = q64::devpanel::requested(argc, argv);
     ultramodern::renderer::callbacks_t renderer_callbacks{
-        .create_render_context = zelda64::renderer::create_render_context,
+        .create_render_context = create_render_context,
     };
 
     ultramodern::gfx_callbacks_t gfx_callbacks{
@@ -727,6 +737,8 @@ int main(int argc, char** argv) {
         error_handling_callbacks,
         threads_callbacks
     );
+
+    q64::devpanel::stop();
 
     NFD_Quit();
 

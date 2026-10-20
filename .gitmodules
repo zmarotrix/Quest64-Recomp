@@ -22,3 +22,6 @@
 [submodule "Quest64Syms"]
 	path = Quest64Syms
 	url = https://github.com/Rainchus/Quest64Syms
+[submodule "lib/cpp-httplib"]
+	path = lib/cpp-httplib
+	url = https://github.com/yhirose/cpp-httplib
