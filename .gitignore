@@ -81,3 +81,4 @@ build-*/
 
 # Save files the game writes when run from the repo root
 *.sav
+devpanel_slots/

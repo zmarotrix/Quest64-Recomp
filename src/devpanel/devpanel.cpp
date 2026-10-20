@@ -282,8 +282,9 @@ bool parse_body(const httplib::Request& req, httplib::Response& res, json& out) 
     return true;
 }
 
+// Kept next to the Controller Pak files (the working directory), since that's where Quest 64's saves live.
 std::filesystem::path save_slots_dir() {
-    return ultramodern::get_save_file_path().parent_path() / "devpanel_slots";
+    return std::filesystem::current_path() / "devpanel_slots";
 }
 
 // Quest 64 saves to a Controller Pak. The runtime writes the pak as controllerPak_*.sav files in the
@@ -503,7 +504,10 @@ void register_routes(httplib::Server& srv) {
         std::error_code ec;
         for (const auto& entry : std::filesystem::directory_iterator(save_slots_dir(), ec)) {
             if (entry.is_directory()) {
-                auto time = std::filesystem::last_write_time(entry.path(), ec);
+                // file_clock's epoch differs by platform; shift into system_clock (Unix epoch) portably.
+                auto file_time = std::filesystem::last_write_time(entry.path(), ec);
+                auto time = std::chrono::system_clock::now() +
+                            std::chrono::duration_cast<std::chrono::system_clock::duration>(file_time - std::filesystem::file_time_type::clock::now());
                 auto seconds = std::chrono::duration_cast<std::chrono::seconds>(time.time_since_epoch()).count();
                 slots.push_back({ {"name", entry.path().filename().string()}, {"modified", seconds} });
             }
