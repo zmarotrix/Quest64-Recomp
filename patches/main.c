@@ -94,26 +94,26 @@ typedef struct Unk3 {
 extern Unk3 D_80092A38[4];
 extern s32 D_80084EFC;
 extern s32 D_80084F00;
-extern s32 D_80084F04;
+extern s32 gExitMap;
 extern s32 D_80084F08;
 extern s32 D_80084F0C;
-extern s8 D_8005FA00;
-extern s8 D_8005F010;
-extern Unk4 D_80090398;
-extern Unk4 D_800904E0;
-extern u8 D_800869D8[UNK_SIZE_0];
-extern u8 D_80086AE8[UNK_SIZE_1];
-extern u8 D_8007D19C[UNK_SIZE_2];
+extern s8 gMessageSpeed;
+extern s8 gBgmVolume;
+extern Unk4 gSaveWorldBuffer;
+extern Unk4 gSaveWorldReadBuf;
+extern u8 gChestFlags[UNK_SIZE_0];
+extern u8 gSpiritFlags[UNK_SIZE_1];
+extern u8 gBossDefeatedFlags[UNK_SIZE_2];
 extern Gfx D_8005FAA0[];
-extern u16 D_8008FD0C;
-extern u16 D_8008FD20;
+extern u16 gMenuFlags;
+extern u16 gSaveMenuState;
 extern u8 D_8008FD22;
 extern s32 D_8008FD24;
 extern s8 D_8008FD29;
-extern s8 D_8008FD2A;
-extern Unk D_8008FD30[16];
-extern SaveData D_8008FD58[16];
-extern SaveData D_80090460;
+extern s8 gSaveSlotCursor;
+extern Unk gSaveSlotList[16];
+extern SaveData gSaveSlotSummaries[16];
+extern SaveData gSaveSummaryReadBuf;
 extern s8 gCurrControllerNum;
 extern u8 D_8008FD28;
 extern s8 D_8008FD2B;
@@ -122,24 +122,24 @@ extern u8 D_8008FD23;
 extern u16 gGameMode;
 extern u8 D_8005FB40[];
 
-void func_8002E234(u32 arg0);
-s32 func_80031890(s32 arg0, u8 arg1);
-s32 func_80031A44(s8, s8, s32, s32, u8*);
+void save_gather_slot_data(u32 arg0);
+s32 pak_create_note(s32 arg0, u8 arg1);
+s32 pak_write(s8, s8, s32, s32, u8*);
 s32 osMotorInit(OSMesgQueue* mq, OSPfs* pfs, int channel);
-s32 func_80031574(s32);
-s32 func_80031BB0(s32);
+s32 pak_scan_notes(s32);
+s32 pak_error_to_code(s32);
 void func_8002B6F0(void);
 void func_8002B8C4(void);
 void func_8002BCA0(void);
-void func_8002C818(s32);
+void save_menu_draw_slots(s32);
 void func_8002D5D4(void);
-void func_8002D614(void);
-void func_8002D748(void);
-void func_8002D8BC(void);
+void save_delete_slot(void);
+void save_load_slot(void);
+void save_write_slot(void);
 void func_8002DBE0(void);
 void func_8002DFD0(void);
-void func_8002DD18(void);
-s32 func_8003195C(s8, u8);
+void save_read_slot_list(void);
+s32 pak_delete_note(s8, u8);
 void func_8002DF6C(void);
 s32 func_80031C0C(u8* str0, u8* str1, s32 size);
 
@@ -284,51 +284,51 @@ RECOMP_PATCH void model_draw_bone(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s3
     }
 }
 
-// RECOMP_PATCH s32 func_800319E0(s32 pfsIndex, s32 file_no, s32 offset, s32 nbytes, u8* data_buffer) {
-//     recomp_printf("func_800319E0 called");
+// RECOMP_PATCH s32 pak_read(s32 pfsIndex, s32 file_no, s32 offset, s32 nbytes, u8* data_buffer) {
+//     recomp_printf("pak_read called");
 // 	return osPfsReadWriteFile_recomp(&gPFS[pfsIndex], file_no, PFS_READ, offset, nbytes, data_buffer);
 // }
 
 
-// RECOMP_PATCH void func_8002DD18(void) {
+// RECOMP_PATCH void save_read_slot_list(void) {
 //     Unk* temp_v0;
 //     s32 var_a1;
 //     s32 var_fp;
 //     s32 i;
 
-//     recomp_printf("func_8002DD18 called");
+//     recomp_printf("save_read_slot_list called");
 
 //     var_fp = 0;
     
 //     //17 not 16?
 //     for (i = 0; i < 16; i++) { //patch to 16
-//         D_8008FD30[i].unk_00 = -1;
-//         D_8008FD30[i].unk_01 = -1;
+//         gSaveSlotList[i].unk_00 = -1;
+//         gSaveSlotList[i].unk_01 = -1;
 //     }
 
 //     var_a1 = 0;
 //     for (i = 0; i < 16; i++) {
 //         if ((D_80092A38[gCurrControllerNum].unk_02[i] != 0x7F) && (D_80092A38[gCurrControllerNum].unk_02[i] >= 0)) {
-//             temp_v0 = &D_8008FD30[var_a1];
+//             temp_v0 = &gSaveSlotList[var_a1];
 //             temp_v0->unk_00 = i;
 //             temp_v0->unk_01 = D_80092A38[gCurrControllerNum].unk_02[i];
 //             var_a1 += 1;
 //         }        
 //     }
     
-//     if (D_8008FD0C & 4) {
+//     if (gMenuFlags & 4) {
 //         if ((D_80092A38[gCurrControllerNum].unk_13 >= 2) && !(D_80092A38[gCurrControllerNum].unk_00 & 0x2000)) {
-//             D_8008FD30[var_a1].unk_00 = -2;
+//             gSaveSlotList[var_a1].unk_00 = -2;
 //         }
 //     }
-//     D_8008FD2A = 0;
+//     gSaveSlotCursor = 0;
 
 //     for (i = 0; i < 16; i++) {
 //         //if slot index is greater than or equal to 0
-//         if (D_8008FD30[i].unk_00 >= 0) {
-//             var_a1 = func_800319E0(gCurrControllerNum, D_8008FD30[i].unk_00, 0, 0x80, &D_80090460);
-//             volatile u32* src = (u32*)&D_80090460;
-//             volatile u32* dst = (u32*)&D_8008FD58[i];
+//         if (gSaveSlotList[i].unk_00 >= 0) {
+//             var_a1 = pak_read(gCurrControllerNum, gSaveSlotList[i].unk_00, 0, 0x80, &gSaveSummaryReadBuf);
+//             volatile u32* src = (u32*)&gSaveSummaryReadBuf;
+//             volatile u32* dst = (u32*)&gSaveSlotSummaries[i];
 //             s32 j;
 
 //             for (j = 0; j < sizeof(SaveData) / 4; j++) {
@@ -336,7 +336,7 @@ RECOMP_PATCH void model_draw_bone(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s3
 //             }
 //             if (var_a1 != 0) {
 //                 D_8008FD24 = var_fp;
-//                 var_fp = -func_80031BB0(var_fp);
+//                 var_fp = -pak_error_to_code(var_fp);
 //                 if (var_fp == 1) {
 //                     D_8008FD22 = 8;
 //                     D_8008FD29 = 0xA;
@@ -345,8 +345,8 @@ RECOMP_PATCH void model_draw_bone(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s3
 //                     D_8008FD29 = 0xA;
 //                 }
                 
-//                 D_8008FD20 &= ~7;
-//                 D_8008FD20 |= 5;
+//                 gSaveMenuState &= ~7;
+//                 gSaveMenuState |= 5;
 //             }
 //         }   
 //     }
@@ -360,8 +360,8 @@ RECOMP_PATCH void model_draw_bone(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s3
 
 //     recomp_printf("func_8002B8C4 called\n");
 
-//     sp1C = D_8008FD0C & 0xC;
-//     if (D_8008FD20 & 0x1000) {
+//     sp1C = gMenuFlags & 0xC;
+//     if (gSaveMenuState & 0x1000) {
 //         temp_v0 = osPfsInitPak_recomp(&gSIMessageQ, &gPFS[gCurrControllerNum], gCurrControllerNum);
 //         if (temp_v0 == 2) {
 //             temp_v0 = 0;
@@ -373,15 +373,15 @@ RECOMP_PATCH void model_draw_bone(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s3
 //             }
 //         }
 //         sp18 = temp_v0;
-//         D_8008FD20 &= ~0x1000;
+//         gSaveMenuState &= ~0x1000;
 //     }
 //     var_a0_2 = sp18;
 //     if (var_a0_2 == 0) {
-//         var_a0_2 = func_80031574(gCurrControllerNum);
+//         var_a0_2 = pak_scan_notes(gCurrControllerNum);
 //     }
 //     if (var_a0_2 != 0) {
 //         D_8008FD24 = var_a0_2;
-//         if (-func_80031BB0(var_a0_2) == 1) {
+//         if (-pak_error_to_code(var_a0_2) == 1) {
 //             if (sp1C == 4) {
 //                 D_8008FD22 = 0xD;
 //                 D_8008FD29 = 0xA;
@@ -394,8 +394,8 @@ RECOMP_PATCH void model_draw_bone(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s3
 //             D_8008FD29 = 0xA;
 //         }
         
-//         D_8008FD20 &= ~7;
-//         D_8008FD20 |= 5;
+//         gSaveMenuState &= ~7;
+//         gSaveMenuState |= 5;
 //         return;
 //     }
 //     recomp_printf("sp1C is %d\n", sp1C);
@@ -410,31 +410,31 @@ RECOMP_PATCH void model_draw_bone(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s3
 //                 D_8008FD22 = 0x14;
 //             }
 //             D_8008FD29 = 0xA;
-//             D_8008FD20 &= ~7;
-//             D_8008FD20 |= 5;
+//             gSaveMenuState &= ~7;
+//             gSaveMenuState |= 5;
 //             return;
 //         }
 //         if (D_80092A38[gCurrControllerNum].unk_00 & 0x2000) {
 //             if (D_80092A38[gCurrControllerNum].unk_00 & 0x4000) {
 //                 D_8008FD22 = 0x15;
-//                 D_8008FD2A = 0;
-//                 D_8008FD20 &= ~0x20;
+//                 gSaveSlotCursor = 0;
+//                 gSaveMenuState &= ~0x20;
 //             } else {
 //                 D_8008FD22 = 0x14;
 //             }
 //             D_8008FD29 = 0xA;
-//             D_8008FD20 &= ~7;
-//             D_8008FD20 |= 5;
+//             gSaveMenuState &= ~7;
+//             gSaveMenuState |= 5;
 //             return;
 //         }
 //     } else if ((D_8008FD2C != 0) && ((D_80092A38[gCurrControllerNum].unk_13 < 2) || (D_80092A38[gCurrControllerNum].unk_00 & 0x2000)) ) {
 //         D_8008FD22 = 0x18;
 //         D_8008FD29 = 0xA;
-//         func_8002DD18();
-//         D_8008FD20 &= ~7;
-//         D_8008FD20 |= 5;
-//         D_8008FD2A = 0;
-//         D_8008FD20 &= ~0x20;
+//         save_read_slot_list();
+//         gSaveMenuState &= ~7;
+//         gSaveMenuState |= 5;
+//         gSaveSlotCursor = 0;
+//         gSaveMenuState &= ~0x20;
 //         return;
 //     } else if (!(D_80092A38[gCurrControllerNum].unk_00 & 0x4000)) {
 //         if (sp1C == 0) {
@@ -444,18 +444,18 @@ RECOMP_PATCH void model_draw_bone(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s3
 //             D_8008FD22 = 0xA;
 //             D_8008FD29 = 0xA;
 //         }
-//         D_8008FD20 &= ~7;
-//         D_8008FD20 |= 5;
+//         gSaveMenuState &= ~7;
+//         gSaveMenuState |= 5;
 //         return;
 //     }
-//     func_8002DD18();
-//     D_8008FD20 &= ~7;
-//     D_8008FD20 = D_8008FD20;
-//     D_8008FD2A = 0;
-//     D_8008FD20 &= ~0x20;
+//     save_read_slot_list();
+//     gSaveMenuState &= ~7;
+//     gSaveMenuState = gSaveMenuState;
+//     gSaveSlotCursor = 0;
+//     gSaveMenuState &= ~0x20;
 // }
 
-RECOMP_PATCH s32 func_80031574(s32 arg0) {
+RECOMP_PATCH s32 pak_scan_notes(s32 arg0) {
     s32 i;
     char pad[0x10];
     s32 var_s4;
