@@ -100,6 +100,17 @@ bool should_override_keystate(SDL_Scancode key, SDL_Keymod mod) {
     return false;        
 }
 
+// The Switch Online N64 controller reports C-right as the right stick and also as the Back button, and Back opens
+// and closes the recomp menu: ignore that controller's Back so C-right only does its job in the game.
+static bool is_n64_back_button(const SDL_ControllerButtonEvent& button) {
+    if (button.button != SDL_CONTROLLER_BUTTON_BACK) {
+        return false;
+    }
+    SDL_GameController* controller = SDL_GameControllerFromInstanceID(button.which);
+    const char* name = controller != nullptr ? SDL_GameControllerName(controller) : nullptr;
+    return name != nullptr && SDL_strstr(name, "N64") != nullptr;
+}
+
 bool sdl_event_filter(void* userdata, SDL_Event* event) {
     switch (event->type) {
     case SDL_EventType::SDL_KEYDOWN:
@@ -172,6 +183,9 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
         queue_if_enabled(event);
         break;
     case SDL_EventType::SDL_CONTROLLERBUTTONDOWN:
+        if (is_n64_back_button(event->cbutton)) {
+            break;
+        }
         if (scanning_device != recomp::InputDevice::COUNT) {
             auto menuToggleBinding0 = recomp::get_input_binding(recomp::GameInput::TOGGLE_MENU, 0, recomp::InputDevice::Controller);
             auto menuToggleBinding1 = recomp::get_input_binding(recomp::GameInput::TOGGLE_MENU, 1, recomp::InputDevice::Controller);
@@ -288,6 +302,9 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
         recompui::drop_files(DropState.files_dropped);
         break;
     case SDL_EventType::SDL_CONTROLLERBUTTONUP:
+        if (is_n64_back_button(event->cbutton)) {
+            break;
+        }
         // Always queue button up events to avoid missing them during binding.
         recompui::queue_event(*event);
         break;
