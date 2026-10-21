@@ -155,10 +155,12 @@ void close_config_menu_impl() {
     recompui::ContextId config_context = recompui::get_config_context_id();
     recompui::ContextId sub_menu_context = recompui::get_config_sub_menu_context_id();
 
+    // The close can arrive twice (e.g. Escape pressed again while it's closing); hiding a menu that isn't shown
+    // raises an error box, so only hide what's actually open.
     if (recompui::is_context_shown(sub_menu_context)) {
     	recompui::hide_context(sub_menu_context);
     }
-    else {
+    else if (recompui::is_context_shown(config_context)) {
     	recompui::hide_context(config_context);
     }
 
