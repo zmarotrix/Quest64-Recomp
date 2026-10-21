@@ -51,6 +51,11 @@
   td input[type=number] { width: 80px; }
   pre { font: 12px/1.5 ui-monospace, Consolas, monospace; overflow: auto; margin: 0; }
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  #sound-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 4px 12px; }
+  .sound { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; }
+  .sound.current { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  .sound code { font: 12px ui-monospace, Consolas, monospace; width: 34px; }
+  .sound input { flex: 1; min-width: 0; }
   #toast { position: fixed; bottom: 16px; right: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; display: none; }
 </style>
 </head>
@@ -62,6 +67,7 @@
     <button data-tab="brian">Brian</button>
     <button data-tab="saves">Saves</button>
     <button data-tab="memory">Memory</button>
+    <button data-tab="sounds">Sounds</button>
   </nav>
   <span id="status">Connecting…</span>
 </header>
@@ -111,6 +117,19 @@
         <button class="action" id="mem-read">Read</button>
       </div>
       <pre id="mem-out"></pre>
+    </div>
+  </section>
+  <section id="tab-sounds">
+    <div class="card">
+      <h2>Sound effects</h2>
+      <p class="muted">Click ▶ to play a sound in the game; ← and → step through them. Names you type are kept in this
+        browser. Needs the Eltale Odyssey mod, which plays the sound on the next frame.</p>
+      <div class="row">
+        <button class="plain" id="sound-prev">← Previous</button>
+        <button class="action" id="sound-play">Play <span id="sound-current">0x18</span></button>
+        <button class="plain" id="sound-next">Next →</button>
+      </div>
+      <div id="sound-grid"></div>
     </div>
   </section>
 </main>
@@ -408,6 +427,69 @@ document.getElementById("mem-read").onclick = async () => {
     document.getElementById("mem-out").textContent = lines.join("\n");
   } catch (e) { toast(e.message); }
 };
+
+// ---- Sounds ----
+// The Eltale Odyssey mod watches SOUND_MAILBOX and plays (tag | id) on the next frame (mod/src/sound_test.c).
+const SOUND_MAILBOX = 0x807F1F00;
+const SOUND_REQUEST_TAG = 0x534E0000;
+const SOUND_COUNT = 0x80;
+const SOUND_NAMES_KEY = "q64.soundNames";
+const KNOWN_SOUNDS = {
+  0x01: "Menu confirm", 0x02: "Menu cancel", 0x0A: "Enemy hurt", 0x18: "Hit (enemy and Brian)", 0x3B: "Item jingle",
+};
+let soundCurrent = 0x18;
+
+function soundNames() {
+  try { return JSON.parse(localStorage.getItem(SOUND_NAMES_KEY)) || {}; } catch { return {}; }
+}
+
+function saveSoundName(id, name) {
+  const names = soundNames();
+  if (name) names[id] = name; else delete names[id];
+  try { localStorage.setItem(SOUND_NAMES_KEY, JSON.stringify(names)); } catch {}
+}
+
+async function playSound(id) {
+  soundCurrent = (id + SOUND_COUNT) % SOUND_COUNT;
+  document.getElementById("sound-current").textContent = hex(soundCurrent, 2);
+  document.querySelectorAll(".sound").forEach(el => el.classList.toggle("current", +el.dataset.id === soundCurrent));
+  const value = (SOUND_REQUEST_TAG | soundCurrent) >>> 0;
+  try { await api("/api/mem", { addr: SOUND_MAILBOX, hex: value.toString(16).padStart(8, "0") }); }
+  catch (e) { toast(e.message); }
+}
+
+function buildSoundGrid() {
+  const grid = document.getElementById("sound-grid");
+  const names = soundNames();
+  for (let id = 0; id < SOUND_COUNT; id++) {
+    const row = document.createElement("div");
+    row.className = "sound";
+    row.dataset.id = id;
+    const code = document.createElement("code");
+    code.textContent = hex(id, 2);
+    const play = document.createElement("button");
+    play.className = "plain";
+    play.textContent = "▶";
+    play.title = "Play in game";
+    play.onclick = () => playSound(id);
+    const name = document.createElement("input");
+    name.placeholder = KNOWN_SOUNDS[id] || "name…";
+    name.value = names[id] || "";
+    name.onchange = () => saveSoundName(id, name.value.trim());
+    row.append(code, play, name);
+    grid.appendChild(row);
+  }
+  document.getElementById("sound-prev").onclick = () => playSound(soundCurrent - 1);
+  document.getElementById("sound-next").onclick = () => playSound(soundCurrent + 1);
+  document.getElementById("sound-play").onclick = () => playSound(soundCurrent);
+  document.addEventListener("keydown", e => {
+    if (!document.getElementById("tab-sounds").classList.contains("active") || e.target.tagName === "INPUT") return;
+    if (e.key === "ArrowRight") { playSound(soundCurrent + 1); e.preventDefault(); }
+    if (e.key === "ArrowLeft") { playSound(soundCurrent - 1); e.preventDefault(); }
+    if (e.key === " " || e.key === "Enter") { playSound(soundCurrent); e.preventDefault(); }
+  });
+}
+buildSoundGrid();
 
 // ---- Tabs and startup ----
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
