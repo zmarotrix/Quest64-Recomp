@@ -1,5 +1,8 @@
+#include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cstdlib>
+#include <mutex>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -32,6 +35,16 @@ constexpr int player_schools = 4;
 constexpr int spells_per_school = 15;
 constexpr int enemy_spell_count = 17;
 constexpr int spell_name_count = player_schools * spells_per_school + enemy_spell_count;
+
+// Controller input held by POST /api/input, merged into the real input by injected_input().
+struct InjectedInput {
+    uint16_t buttons = 0;
+    float x = 0.0f;
+    float y = 0.0f;
+    std::chrono::steady_clock::time_point until{};
+};
+std::mutex injected_mutex;
+InjectedInput injected;
 
 enum class FieldType { U8, U16, S16, U32, F32 };
 
@@ -499,6 +512,41 @@ void register_routes(httplib::Server& srv) {
         reply_json(res, { {"ok", true} });
     });
 
+    // Hold controller input for a while, for scripted tests:
+    // POST /api/input {"buttons": ["A"], "x": 0.0, "y": 1.0, "ms": 300}  (x/y: stick, -1..1; up is +y)
+    srv.Post("/api/input", [](const httplib::Request& req, httplib::Response& res) {
+        json body;
+        if (!parse_body(req, res, body)) {
+            return;
+        }
+        static const std::pair<const char*, uint16_t> names[] = {
+            {"A", 0x8000}, {"B", 0x4000}, {"Z", 0x2000}, {"START", 0x1000},
+            {"DUP", 0x0800}, {"DDOWN", 0x0400}, {"DLEFT", 0x0200}, {"DRIGHT", 0x0100},
+            {"L", 0x0020}, {"R", 0x0010}, {"CUP", 0x0008}, {"CDOWN", 0x0004}, {"CLEFT", 0x0002}, {"CRIGHT", 0x0001},
+        };
+        uint16_t buttons = 0;
+        for (const auto& name : body.value("buttons", json::array())) {
+            bool found = false;
+            for (const auto& [key, mask] : names) {
+                if (name.is_string() && name.get<std::string>() == key) {
+                    buttons |= mask;
+                    found = true;
+                }
+            }
+            if (!found) {
+                reply_error(res, "unknown button; use A B Z START DUP DDOWN DLEFT DRIGHT L R CUP CDOWN CLEFT CRIGHT");
+                return;
+            }
+        }
+        int ms = std::clamp(body.value("ms", 100), 0, 10000);
+        std::lock_guard lock{ injected_mutex };
+        injected.buttons = buttons;
+        injected.x = std::clamp(body.value("x", 0.0f), -1.0f, 1.0f);
+        injected.y = std::clamp(body.value("y", 0.0f), -1.0f, 1.0f);
+        injected.until = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+        reply_json(res, { {"ok", true} });
+    });
+
     srv.Get("/api/saves", [](const httplib::Request&, httplib::Response& res) {
         json slots = json::array();
         std::error_code ec;
@@ -585,6 +633,17 @@ void register_routes(httplib::Server& srv) {
 }
 
 } // namespace
+
+bool injected_input(uint16_t* buttons, float* x, float* y) {
+    std::lock_guard lock{ injected_mutex };
+    if (std::chrono::steady_clock::now() >= injected.until) {
+        return false;
+    }
+    *buttons = injected.buttons;
+    *x = injected.x;
+    *y = injected.y;
+    return true;
+}
 
 bool requested(int argc, char** argv) {
     for (int i = 1; i < argc; i++) {

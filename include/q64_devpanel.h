@@ -12,6 +12,8 @@ namespace q64::devpanel {
     constexpr int default_port = 43064;
 
     bool requested(int argc, char** argv);
+    // Controller input held by the panel's POST /api/input; false when none is active.
+    bool injected_input(uint16_t* buttons, float* x, float* y);
     void start(uint8_t* rdram);
     void stop();
 }

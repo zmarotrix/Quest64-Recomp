@@ -2,6 +2,7 @@
 
 #include "librecomp/helpers.hpp"
 #include "recomp_input.h"
+#include "q64_devpanel.h"
 #include "ultramodern/ultramodern.hpp"
 
 // Arrays that hold the mappings for every input for keyboard and controller respectively.
@@ -106,6 +107,15 @@ bool recomp::get_n64_input(int controller_num, uint16_t* buttons_out, float* x_o
 
         cur_y = recomp::get_input_analog(keyboard_input_mappings[(size_t)GameInput::Y_AXIS_POS])
                 - recomp::get_input_analog(keyboard_input_mappings[(size_t)GameInput::Y_AXIS_NEG]) + joystick_y;
+    }
+
+    // Input held by the dev panel for scripted tests (only while the panel is running).
+    uint16_t injected_buttons;
+    float injected_x, injected_y;
+    if (q64::devpanel::injected_input(&injected_buttons, &injected_x, &injected_y)) {
+        cur_buttons |= injected_buttons;
+        cur_x += injected_x;
+        cur_y += injected_y;
     }
 
     *buttons_out = cur_buttons;
